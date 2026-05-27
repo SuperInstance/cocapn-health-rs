@@ -42,9 +42,17 @@ pub struct CheckRegistry {
     checks: HashMap<String, CustomCheck>,
 }
 
+impl Default for CheckRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CheckRegistry {
     pub fn new() -> Self {
-        Self { checks: HashMap::new() }
+        Self {
+            checks: HashMap::new(),
+        }
     }
 
     pub fn add(&mut self, check: CustomCheck) {
@@ -58,7 +66,12 @@ impl CheckRegistry {
     pub fn run(&self, name: &str) -> CheckResult {
         match self.checks.get(name) {
             Some(check) => check.run(),
-            None => CheckResult::new(name, false, 0.0, &format!("ERROR | unknown check '{}'", name)),
+            None => CheckResult::new(
+                name,
+                false,
+                0.0,
+                &format!("ERROR | unknown check '{}'", name),
+            ),
         }
     }
 
@@ -67,7 +80,8 @@ impl CheckRegistry {
     }
 
     pub fn run_tagged(&self, tag: &str) -> Vec<CheckResult> {
-        self.checks.values()
+        self.checks
+            .values()
             .filter(|c| c.tags.iter().any(|t| t == tag))
             .map(|c| c.run())
             .collect()
@@ -77,8 +91,12 @@ impl CheckRegistry {
         self.checks.keys().map(|s| s.as_str()).collect()
     }
 
-    pub fn len(&self) -> usize { self.checks.len() }
-    pub fn is_empty(&self) -> bool { self.checks.is_empty() }
+    pub fn len(&self) -> usize {
+        self.checks.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.checks.is_empty()
+    }
 }
 
 /// Fluent builder for creating custom checks.
@@ -90,7 +108,11 @@ pub struct CheckBuilder {
 
 impl CheckBuilder {
     pub fn new(name: &str) -> Self {
-        Self { name: name.into(), timeout: 5.0, tags: Vec::new() }
+        Self {
+            name: name.into(),
+            timeout: 5.0,
+            tags: Vec::new(),
+        }
     }
 
     pub fn timeout(mut self, seconds: f64) -> Self {
@@ -127,8 +149,12 @@ mod tests {
     #[test]
     fn test_registry_run_all() {
         let mut reg = CheckRegistry::new();
-        reg.add(CustomCheck::new("a", || CheckResult::new("a", true, 1.0, "UP")));
-        reg.add(CustomCheck::new("b", || CheckResult::new("b", false, 2.0, "DOWN")));
+        reg.add(CustomCheck::new("a", || {
+            CheckResult::new("a", true, 1.0, "UP")
+        }));
+        reg.add(CustomCheck::new("b", || {
+            CheckResult::new("b", false, 2.0, "DOWN")
+        }));
         let results = reg.run_all();
         assert_eq!(results.len(), 2);
     }
@@ -136,8 +162,12 @@ mod tests {
     #[test]
     fn test_registry_run_tagged() {
         let mut reg = CheckRegistry::new();
-        reg.add(CustomCheck::new("a", || CheckResult::new("a", true, 1.0, "UP")).with_tags(&["infra"]));
-        reg.add(CustomCheck::new("b", || CheckResult::new("b", true, 1.0, "UP")).with_tags(&["app"]));
+        reg.add(
+            CustomCheck::new("a", || CheckResult::new("a", true, 1.0, "UP")).with_tags(&["infra"]),
+        );
+        reg.add(
+            CustomCheck::new("b", || CheckResult::new("b", true, 1.0, "UP")).with_tags(&["app"]),
+        );
         let results = reg.run_tagged("infra");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "a");

@@ -1,9 +1,9 @@
 //! cocapn-health — Fleet service health checker with monitoring, alerting, and reporting.
 
-pub mod monitor;
 pub mod alert;
-pub mod report;
 pub mod check;
+pub mod monitor;
+pub mod report;
 
 use std::collections::HashMap;
 use std::time::Instant;
@@ -28,9 +28,31 @@ pub struct ServiceDef {
     pub extract: Option<HashMap<String, String>>,
 }
 
-fn default_path() -> String { "/".into() }
-fn default_method() -> String { "GET".into() }
-fn default_timeout() -> f64 { 5.0 }
+fn default_path() -> String {
+    "/".into()
+}
+fn default_method() -> String {
+    "GET".into()
+}
+fn default_timeout() -> f64 {
+    5.0
+}
+
+impl Default for ServiceDef {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            host: String::new(),
+            port: 0,
+            path: default_path(),
+            method: default_method(),
+            timeout: default_timeout(),
+            expect_status: None,
+            headers: HashMap::new(),
+            extract: None,
+        }
+    }
+}
 
 /// Result of a single health check.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,12 +98,19 @@ impl HealthChecker {
         let addr = format!("{}:{}", svc.host, svc.port);
 
         match std::net::TcpStream::connect_timeout(
-            &addr.parse().unwrap_or_else(|_| "0.0.0.0:0".parse().unwrap()),
+            &addr
+                .parse()
+                .unwrap_or_else(|_| "0.0.0.0:0".parse().unwrap()),
             std::time::Duration::from_secs_f64(svc.timeout),
         ) {
             Ok(_) => {
                 let latency = start.elapsed().as_secs_f64() * 1000.0;
-                CheckResult::new(&svc.name, true, latency, &format!("UP | TCP connected to {}:{}", svc.host, svc.port))
+                CheckResult::new(
+                    &svc.name,
+                    true,
+                    latency,
+                    &format!("UP | TCP connected to {}:{}", svc.host, svc.port),
+                )
             }
             Err(e) => {
                 let latency = start.elapsed().as_secs_f64() * 1000.0;
@@ -92,7 +121,10 @@ impl HealthChecker {
 
     /// Check all services.
     pub fn check_all(&self) -> Vec<CheckResult> {
-        self.services.iter().map(|svc| self.check_one(svc)).collect()
+        self.services
+            .iter()
+            .map(|svc| self.check_one(svc))
+            .collect()
     }
 
     /// Generate a report string.
@@ -104,7 +136,8 @@ impl HealthChecker {
             "json" => serde_json::to_string_pretty(&serde_json::json!({
                 "summary": {"total": results.len(), "up": up, "down": down},
                 "services": results
-            })).unwrap_or_default(),
+            }))
+            .unwrap_or_default(),
             "markdown" | "md" => {
                 let mut lines = vec![
                     "# Fleet Health Report".into(),
@@ -116,12 +149,19 @@ impl HealthChecker {
                 ];
                 for r in results {
                     let emoji = if r.ok { "🟢" } else { "🔴" };
-                    lines.push(format!("| {} {} | {} | {:.0}ms |", emoji, r.name, r.status, r.latency_ms));
+                    lines.push(format!(
+                        "| {} {} | {} | {:.0}ms |",
+                        emoji, r.name, r.status, r.latency_ms
+                    ));
                 }
                 lines.join("\n")
             }
             "oneline" => {
-                let status = if down == 0 { "✅".into() } else { format!("⚠️ {} down", down) };
+                let status = if down == 0 {
+                    "✅".into()
+                } else {
+                    format!("⚠️ {} down", down)
+                };
                 format!("Fleet: {}/{} up {}", up, results.len(), status)
             }
             _ => String::new(),

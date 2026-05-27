@@ -2,8 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::monitor::{AgentState, HealthStatus};
-use crate::alert::HealthAlert;
 use crate::CheckResult;
 
 /// A snapshot of system health at a point in time.
@@ -23,9 +21,19 @@ impl HealthReport {
     pub fn from_results(results: &[CheckResult]) -> Self {
         let up = results.iter().filter(|r| r.ok).count();
         let down = results.len() - up;
-        let failing: Vec<String> = results.iter().filter(|r| !r.ok).map(|r| r.name.clone()).collect();
+        let failing: Vec<String> = results
+            .iter()
+            .filter(|r| !r.ok)
+            .map(|r| r.name.clone())
+            .collect();
 
-        let status = if down == 0 { "healthy" } else if down <= up { "degraded" } else { "unhealthy" };
+        let status = if down == 0 {
+            "healthy"
+        } else if down <= up {
+            "degraded"
+        } else {
+            "unhealthy"
+        };
 
         Self {
             status: status.into(),
@@ -47,8 +55,13 @@ impl HealthReport {
         let mut lines = vec![
             "# Health Report".into(),
             String::new(),
-            format!("**Status:** {} | **{}/{}** services up | **{}** down",
-                self.status.to_uppercase(), self.services_up, self.total_services, self.services_down),
+            format!(
+                "**Status:** {} | **{}/{}** services up | **{}** down",
+                self.status.to_uppercase(),
+                self.services_up,
+                self.total_services,
+                self.services_down
+            ),
             format!("**Checked:** {}", self.checked_at),
             String::new(),
         ];
@@ -75,7 +88,14 @@ impl HealthReport {
         } else {
             format!(", failing: {}", self.failing.join(", "))
         };
-        format!("{} {} | {}/{} up{}", emoji, self.status.to_uppercase(), self.services_up, self.total_services, failing_str)
+        format!(
+            "{} {} | {}/{} up{}",
+            emoji,
+            self.status.to_uppercase(),
+            self.services_up,
+            self.total_services,
+            failing_str
+        )
     }
 }
 

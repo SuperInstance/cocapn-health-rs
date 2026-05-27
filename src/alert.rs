@@ -75,7 +75,9 @@ pub struct AlertRule {
 
 impl std::fmt::Debug for AlertRule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AlertRule").field("name", &self.name).finish()
+        f.debug_struct("AlertRule")
+            .field("name", &self.name)
+            .finish()
     }
 }
 
@@ -92,6 +94,12 @@ impl AlertRule {
             escalation_after_failures: 3,
             message_template: "{name} is failing".into(),
         }
+    }
+}
+
+impl Default for AlertManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -123,7 +131,12 @@ impl AlertManager {
                 if triggered {
                     let existing = self.alerts.get(&key).cloned();
                     let should_fire = match &existing {
-                        Some(a) if a.state == AlertState::Firing || a.state == AlertState::Escalated => false,
+                        Some(a)
+                            if a.state == AlertState::Firing
+                                || a.state == AlertState::Escalated =>
+                        {
+                            false
+                        }
                         Some(a) if a.state == AlertState::Resolved => true,
                         _ => true,
                     };
@@ -143,14 +156,18 @@ impl AlertManager {
                         newly_fired.push(alert);
                     } else if let Some(existing) = self.alerts.get_mut(&key) {
                         // Check escalation
-                        if state.consecutive_failures >= rule.escalation_after_failures && existing.escalation_count == 0 {
+                        if state.consecutive_failures >= rule.escalation_after_failures
+                            && existing.escalation_count == 0
+                        {
                             existing.state = AlertState::Escalated;
                             existing.escalation_count = 1;
                             existing.message = format!("{} (ESCALATED)", existing.message);
                         }
                     }
                 } else if let Some(existing) = self.alerts.get_mut(&key) {
-                    if existing.state == AlertState::Firing || existing.state == AlertState::Escalated {
+                    if existing.state == AlertState::Firing
+                        || existing.state == AlertState::Escalated
+                    {
                         existing.state = AlertState::Resolved;
                         existing.resolved_at = Some(0.0);
                     }
@@ -162,7 +179,8 @@ impl AlertManager {
     }
 
     pub fn active_alerts(&self) -> Vec<&HealthAlert> {
-        self.alerts.values()
+        self.alerts
+            .values()
             .filter(|a| a.state == AlertState::Firing || a.state == AlertState::Escalated)
             .collect()
     }
@@ -172,7 +190,9 @@ impl AlertManager {
     }
 
     pub fn clear_resolved(&mut self) -> usize {
-        let to_remove: Vec<String> = self.alerts.iter()
+        let to_remove: Vec<String> = self
+            .alerts
+            .iter()
             .filter(|(_, a)| a.state == AlertState::Resolved)
             .map(|(k, _)| k.clone())
             .collect();
@@ -219,7 +239,11 @@ mod tests {
     #[test]
     fn test_alert_manager_fire_and_resolve() {
         let mut mgr = AlertManager::new();
-        mgr.add_rule(AlertRule::new("down", |s| is_down(s), AlertSeverity::Critical));
+        mgr.add_rule(AlertRule::new(
+            "down",
+            |s| is_down(s),
+            AlertSeverity::Critical,
+        ));
 
         let mut states = HashMap::new();
         states.insert("svc".into(), make_agent("svc", false, 1));
@@ -236,7 +260,11 @@ mod tests {
     #[test]
     fn test_clear_resolved() {
         let mut mgr = AlertManager::new();
-        mgr.add_rule(AlertRule::new("down", |s| is_down(s), AlertSeverity::Critical));
+        mgr.add_rule(AlertRule::new(
+            "down",
+            |s| is_down(s),
+            AlertSeverity::Critical,
+        ));
 
         let mut states = HashMap::new();
         states.insert("svc".into(), make_agent("svc", false, 1));

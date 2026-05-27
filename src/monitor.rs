@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{CheckResult, ServiceDef, HealthChecker};
+use crate::{CheckResult, HealthChecker, ServiceDef};
 
 /// Overall system health status.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,12 +65,16 @@ impl AgentState {
     }
 
     pub fn availability(&self) -> f64 {
-        if self.total_checks == 0 { return 0.0; }
+        if self.total_checks == 0 {
+            return 0.0;
+        }
         ((self.total_checks - self.total_failures) as f64 / self.total_checks as f64) * 100.0
     }
 
     pub fn avg_latency_ms(&self) -> f64 {
-        if self.history.is_empty() { return 0.0; }
+        if self.history.is_empty() {
+            return 0.0;
+        }
         self.history.iter().map(|r| r.latency_ms).sum::<f64>() / self.history.len() as f64
     }
 }
@@ -88,7 +92,8 @@ pub struct HealthMonitor {
 
 impl HealthMonitor {
     pub fn new(services: Vec<ServiceDef>) -> Self {
-        let agent_states = services.iter()
+        let agent_states = services
+            .iter()
             .map(|s| (s.name.clone(), AgentState::new(&s.name)))
             .collect();
         Self {
@@ -123,9 +128,15 @@ impl HealthMonitor {
 
     pub fn overall_status(&self) -> HealthStatus {
         let total = self.services.len();
-        if total == 0 { return HealthStatus::Healthy; }
+        if total == 0 {
+            return HealthStatus::Healthy;
+        }
 
-        let up = self.agent_states.values().filter(|s| s.last_ok == Some(true)).count();
+        let up = self
+            .agent_states
+            .values()
+            .filter(|s| s.last_ok == Some(true))
+            .count();
         let ratio = up as f64 / total as f64;
 
         if ratio >= self.degraded_threshold {
@@ -138,13 +149,16 @@ impl HealthMonitor {
     }
 
     pub fn failing_agents(&self) -> Vec<&str> {
-        self.agent_states.iter()
+        self.agent_states
+            .iter()
             .filter(|(_, s)| s.last_ok == Some(false))
             .map(|(name, _)| name.as_str())
             .collect()
     }
 
-    pub fn check_count(&self) -> usize { self.check_count }
+    pub fn check_count(&self) -> usize {
+        self.check_count
+    }
 }
 
 #[cfg(test)]
@@ -193,9 +207,15 @@ mod tests {
     #[test]
     fn test_monitor_overall_status() {
         let svc = ServiceDef {
-            name: "test".into(), host: "127.0.0.1".into(), port: 1,
-            path: "/".into(), method: "GET".into(), timeout: 0.1,
-            expect_status: None, headers: HashMap::new(), extract: None,
+            name: "test".into(),
+            host: "127.0.0.1".into(),
+            port: 1,
+            path: "/".into(),
+            method: "GET".into(),
+            timeout: 0.1,
+            expect_status: None,
+            headers: HashMap::new(),
+            extract: None,
         };
         let mut mon = HealthMonitor::new(vec![svc]);
         // Port 1 won't be listening, so all will be "down"
@@ -208,9 +228,15 @@ mod tests {
     #[test]
     fn test_failing_agents() {
         let svc = ServiceDef {
-            name: "test".into(), host: "127.0.0.1".into(), port: 1,
-            path: "/".into(), method: "GET".into(), timeout: 0.1,
-            expect_status: None, headers: HashMap::new(), extract: None,
+            name: "test".into(),
+            host: "127.0.0.1".into(),
+            port: 1,
+            path: "/".into(),
+            method: "GET".into(),
+            timeout: 0.1,
+            expect_status: None,
+            headers: HashMap::new(),
+            extract: None,
         };
         let mut mon = HealthMonitor::new(vec![svc]);
         mon.check();

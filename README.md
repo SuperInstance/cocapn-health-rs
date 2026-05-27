@@ -4,7 +4,7 @@ Rust port of [cocapn-health](https://github.com/SuperInstance/cocapn-health) —
 
 ## Features
 
-- **`HealthChecker`** — TCP/HTTP health checks for fleet services
+- **`HealthChecker`** — TCP health checks for fleet services
 - **`HealthMonitor`** — Track service health over time with healthy/degraded/unhealthy classification
 - **`AlertManager`** — Alert rules with severity levels and escalation
 - **`HealthReport`** — JSON, Markdown, and one-line reports
@@ -13,32 +13,83 @@ Rust port of [cocapn-health](https://github.com/SuperInstance/cocapn-health) —
 
 ## Usage
 
+### Basic health check
+
 ```rust
-use cocapn_health::{ServiceDef, HealthChecker, CheckResult};
-use cocapn_health::monitor::HealthMonitor;
-use cocapn_health::alert::{AlertManager, AlertRule, AlertSeverity, is_down};
+use cocapn_health::{ServiceDef, HealthChecker};
 
 let services = vec![
     ServiceDef {
-        name: "api".into(), host: "127.0.0.1".into(), port: 8080,
+        name: "api".into(),
+        host: "127.0.0.1".into(),
+        port: 8080,
         ..Default::default()
     },
 ];
 
-// Simple check
-let checker = HealthChecker::new(services.clone());
+let checker = HealthChecker::new(services);
 let results = checker.check_all();
 println!("{}", HealthChecker::report(&results, "markdown"));
+```
 
-// Monitor over time
-let mut monitor = HealthMonitor::new(services.clone());
-let results = monitor.check();
+### Monitor over time
+
+```rust
+use cocapn_health::monitor::HealthMonitor;
+
+let services = vec![
+    ServiceDef {
+        name: "api".into(),
+        host: "127.0.0.1".into(),
+        port: 8080,
+        ..Default::default()
+    },
+];
+
+let mut monitor = HealthMonitor::new(services);
+monitor.check();
 println!("Status: {:?}", monitor.overall_status());
+println!("Failing: {:?}", monitor.failing_agents());
+```
 
-// Alerting
+### Alerting with rules
+
+```rust
+use cocapn_health::alert::{AlertManager, AlertRule, AlertSeverity, is_down};
+
 let mut alerts = AlertManager::new();
-alerts.add_rule(AlertRule::new("down", |s| is_down(s), AlertSeverity::Critical));
+alerts.add_rule(AlertRule::new(
+    "down",
+    |s| is_down(s),
+    AlertSeverity::Critical,
+));
 let new_alerts = alerts.evaluate(&monitor.agent_states);
+println!("Active alerts: {}", alerts.active_alerts().len());
+```
+
+### Custom checks
+
+```rust
+use cocapn_health::check::{CheckRegistry, CustomCheck, CheckBuilder};
+
+let mut registry = CheckRegistry::new();
+registry.add(CustomCheck::new("disk", || {
+    // check disk space...
+    cocapn_health::CheckResult::new("disk", true, 0.0, "OK")
+}).with_tags(&["infra"]));
+
+let results = registry.run_tagged("infra");
+```
+
+### Reports
+
+```rust
+use cocapn_health::report::HealthReport;
+
+let report = HealthReport::from_results(&results);
+println!("{}", report.to_json());
+println!("{}", report.to_markdown());
+println!("{}", report.to_oneline());
 ```
 
 ## Installation
