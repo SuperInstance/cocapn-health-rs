@@ -60,6 +60,7 @@ println!("{}", report.to_markdown());
 ### `Report` — `to_json()`, `to_markdown()`, `to_oneline()`
 
 ## How It Fits
+- [OpenConstruct Documentation](https://github.com/SuperInstance/openconstruct-docs) — ecosystem-wide docs and guides
 
 The Rust-based health checking component for the [SuperInstance fleet](https://github.com/SuperInstance). Runs alongside the Python [fleet-health-monitor](https://github.com/SuperInstance/fleet-health-monitor) for low-level TCP probing.
 
