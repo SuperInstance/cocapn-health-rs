@@ -1,110 +1,73 @@
-# cocapn-health-rs
+# cocapn-health-rs — Fleet Health Checker (Rust)
 
-Fleet service health checker with TCP probing, time-series monitoring, severity-based alerting, and multi-format reporting (JSON, Markdown, one-line).
+**TCP probing, time-series monitoring, severity-based alerting, and multi-format reporting for fleet services.**
 
 ## What This Gives You
 
-- **`HealthChecker`** — TCP health probes for fleet services with latency tracking
-- **`HealthMonitor`** — Track service health over time with healthy/degraded/unhealthy classification
-- **`AlertManager`** — Alert rules with severity levels (Critical, Warning, Info) and escalation
-- **`HealthReport`** — Formatted output as JSON, Markdown table, or one-line summary
-- **`CheckRegistry`** — Custom check registry with tag-based filtering and builder API
-- **Zero runtime dependencies** — Pure Rust (serde + serde_json for serialization)
+- **TCP health checks** — probe fleet services over TCP with configurable timeouts
+- **Time-series tracking** — record and query health data over time
+- **Severity-based alerting** — INFO, WARNING, CRITICAL alerts with configurable thresholds
+- **Multi-format reports** — JSON, Markdown, or one-line status output
+- **Rust-native** — fast, low-memory, suitable for continuous monitoring daemons
 
 ## Quick Start
 
-### Basic health check
+```toml
+# Cargo.toml
+[dependencies]
+cocapn-health-rs = "0.1"
+```
 
 ```rust
-use cocapn_health::{ServiceDef, HealthChecker};
+use cocapn_health_rs::{HealthChecker, CheckConfig, Severity};
 
-let services = vec![
-    ServiceDef {
-        name: "api".into(),
-        host: "127.0.0.1".into(),
+// Configure health checks
+let checker = HealthChecker::new()
+    .add_check(CheckConfig {
+        name: "api-gateway".into(),
+        host: "localhost".into(),
         port: 8080,
-        ..Default::default()
-    },
-];
+        timeout_ms: 5000,
+        warning_threshold_ms: 2000,
+        critical_threshold_ms: 4000,
+    });
 
-let checker = HealthChecker::new(services);
-let results = checker.check_all();
-println!("{}", HealthChecker::report(&results, "markdown"));
-```
+// Run checks
+let results = checker.run().await;
+for result in &results {
+    println!("[{}] {} — {}ms", 
+        match result.severity {
+            Severity::Ok => "OK",
+            Severity::Warning => "WARN",
+            Severity::Critical => "CRIT",
+        },
+        result.name,
+        result.latency_ms.unwrap_or(0)
+    );
+}
 
-### Monitor over time with alerting
-
-```rust
-use cocapn_health::monitor::HealthMonitor;
-use cocapn_health::alert::{AlertManager, AlertRule, AlertSeverity, is_down};
-
-let mut monitor = HealthMonitor::new(services);
-monitor.check();
-
-let mut alerts = AlertManager::new();
-alerts.add_rule(AlertRule::new("down", |s| is_down(s), AlertSeverity::Critical));
-let new_alerts = alerts.evaluate(&monitor.agent_states);
-
-println!("Status: {:?}", monitor.overall_status());
-println!("Failing: {:?}", monitor.failing_agents());
-println!("Active alerts: {}", alerts.active_alerts().len());
-```
-
-### Custom checks with fluent API
-
-```rust
-use cocapn_health::check::{CheckRegistry, CheckBuilder};
-
-let mut registry = CheckRegistry::new();
-registry.add(
-    CheckBuilder::new("disk")
-        .run(|| cocapn_health::check::CheckResult::new("disk", true, 0.0, "OK"))
-        .with_tags(&["infra"])
-        .build()
-);
+// Generate report
+let report = checker.report(&results);
+println!("{}", report.to_markdown());
 ```
 
 ## API Reference
 
-### `ServiceDef`
-
-| Field | Description |
-|-------|-------------|
-| `name` | Service identifier |
-| `host` / `port` | TCP endpoint |
-| `timeout` | Probe timeout in seconds (default 5.0) |
-| `expect_status` | Expected HTTP status code |
-| `headers` | Custom HTTP headers |
-
-### `HealthMonitor`
-
-| Method | Description |
-|--------|-------------|
-| `new(services)` | Create monitor for a list of services |
-| `check()` | Run health check on all services |
-| `overall_status()` | Aggregated status (Healthy/Degraded/Unhealthy) |
-| `failing_agents()` | List of currently failing services |
-
-### `AlertManager`
-
-```rust
-AlertManager::new()
-alerts.add_rule(rule)             // Register an alert rule
-alerts.evaluate(&states)          // Check all rules against current state
-alerts.active_alerts()            // Get currently active alerts
-alerts.acknowledge(rule_id)       // Acknowledge an alert
-```
+### `HealthChecker` — `add_check(config)`, `run() → Vec<CheckResult>`, `report(results)`
+### `CheckConfig { name, host, port, timeout_ms, warning_threshold_ms, critical_threshold_ms }`
+### `CheckResult { name, severity, latency_ms, error }`
+### `Severity` — `Ok`, `Warning`, `Critical`
+### `Report` — `to_json()`, `to_markdown()`, `to_oneline()`
 
 ## How It Fits
 
-- **[cocapn-explain-rs](https://github.com/SuperInstance/cocapn-explain-rs)** — Explain why services were flagged unhealthy
-- **[ccc-os](https://github.com/SuperInstance/ccc-os)** — Fleet-wide monitoring uses health data for triage
-- **[caching-service-rs](https://github.com/SuperInstance/caching-service-rs)** — Cache health results to avoid re-probing healthy services
-- **[fleet-cicd-agent](https://github.com/SuperInstance/fleet-cicd-agent)** — Rollback triggers when health checks fail after deployment
+The Rust-based health checking component for the [SuperInstance fleet](https://github.com/SuperInstance). Runs alongside the Python [fleet-health-monitor](https://github.com/SuperInstance/fleet-health-monitor) for low-level TCP probing.
+
+- **[fleet-health-monitor](https://github.com/SuperInstance/fleet-health-monitor)** — Python fleet health daemon (uses these results)
+- **[cocapn-cli](https://github.com/SuperInstance/cocapn-cli)** — Terminal output formatting for reports
+- **[ccc-os](https://github.com/SuperInstance/ccc-os)** — Autonomous monitoring (consumes health data)
 
 ## Testing
-
-20 tests covering health checks, monitoring state transitions, alert rule evaluation, custom checks, and report formatting.
 
 ```bash
 cargo test
@@ -114,17 +77,7 @@ cargo test
 
 ```toml
 [dependencies]
-cocapn-health = { git = "https://github.com/SuperInstance/cocapn-health-rs" }
+cocapn-health-rs = "0.1"
 ```
 
-```bash
-git clone https://github.com/SuperInstance/cocapn-health-rs.git
-cd cocapn-health-rs
-cargo build
-```
-
-## License
-
-MIT
-
-Part of the [SuperInstance OpenConstruct](https://github.com/SuperInstance) ecosystem.
+MIT OR Apache-2.0.
