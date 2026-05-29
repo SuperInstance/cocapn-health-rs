@@ -1,5 +1,9 @@
 # cocapn-health-rs — Fleet Health Checker (Rust)
 
+[![crates.io](https://img.shields.io/crates/v/placeholder)](https://crates.io/crates/placeholder) [![SuperInstance](https://img.shields.io/badge/SuperInstance-Ecosystem-blue)](https://github.com/SuperInstance)
+
+
+
 **TCP probing, time-series monitoring, severity-based alerting, and multi-format reporting for fleet services.**
 
 ## What This Gives You
